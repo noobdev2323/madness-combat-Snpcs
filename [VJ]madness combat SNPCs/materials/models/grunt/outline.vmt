@@ -1,0 +1,6 @@
+VertexLitGeneric
+{
+	$basetexture "models/grunt/Outline"
+	$nodecal 1
+	$selfillum 1
+}

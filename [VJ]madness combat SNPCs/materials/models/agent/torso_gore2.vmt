@@ -1,0 +1,5 @@
+"VertexlitGeneric"
+{
+	"$basetexture" "models/agent/torso_gore2"
+	$selfillum 1
+}

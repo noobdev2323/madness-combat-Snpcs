@@ -1,0 +1,5 @@
+"VertexlitGeneric"
+{
+	"$basetexture" "models/grunt/torso_gore"
+	$selfillum 1
+}

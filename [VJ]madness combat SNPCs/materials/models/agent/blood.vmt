@@ -1,0 +1,5 @@
+"VertexlitGeneric"
+{
+	"$basetexture" "models/agent/blood"
+	"$translucent" "1"
+}
