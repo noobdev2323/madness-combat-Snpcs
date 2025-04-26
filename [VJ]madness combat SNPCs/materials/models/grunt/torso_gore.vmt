@@ -2,4 +2,5 @@
 {
 	"$basetexture" "models/grunt/torso_gore"
 	$selfillum 1
+	"$nolod" 1
 }

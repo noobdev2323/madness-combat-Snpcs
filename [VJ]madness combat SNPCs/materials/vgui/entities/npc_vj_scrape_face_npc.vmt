@@ -1,0 +1,7 @@
+"UnlitGeneric"
+{
+	"$basetexture" "vgui/entities/npc_vj_scrape_face_npc"
+	"$vertexalpha" 1
+	"$nolod" 1
+	"$vertexcolor" 1
+}

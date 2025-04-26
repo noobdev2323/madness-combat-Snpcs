@@ -2,5 +2,4 @@
 {
 	"$basetexture" "models/agent/agent_texture"
 	$selfillum 1
-	"$nolod" 1
 }

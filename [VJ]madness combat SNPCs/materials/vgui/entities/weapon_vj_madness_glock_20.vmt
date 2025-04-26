@@ -1,0 +1,7 @@
+"UnlitGeneric"
+{	
+	"$basetexture" "vgui/entities/weapon_vj_madness_glock_20"
+	"$nolod" 1
+	"$vertexalpha" 1
+	"$vertexcolor" 1
+}

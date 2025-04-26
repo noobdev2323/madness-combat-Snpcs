@@ -22,33 +22,16 @@ ENT.CustomBlood_Decal = {"VJ_GRUNT_BLOOD"} -- Decals to spawn when it's damaged
 ENT.CanOpenDoors = true -- Can it open doors?
 ENT.VJ_NPC_Class = {"CLASS_AAHW"} -- NPCs with the same class with be allied to each other
 ENT.Behavior = VJ_BEHAVIOR_AGGRESSIVE
+ENT.HasPoseParameterLooking = true -- Does it look at its enemy using poseparameters?
+
 --------------------------------------------------------------------------------------------------------------
 
-
-
-ENT.HasDeathAnimation = true -- Does it play an animation when it dies?
-ENT.AnimTbl_Death = {} -- Death Animations
-ENT.DeathAnimationTime = false -- Time until the SNPC spawns its corpse and gets removed
-ENT.DeathAnimationChance = 1 -- Put 1 if you want it to play the animation all the time
-ENT.DeathAnimationDecreaseLengthAmount = 0 -- This will decrease the time until it turns into a corpse
-	-- ====== Corpse Variables ====== --
-ENT.HasDeathRagdoll = true -- If set to false, it will not spawn the regular ragdoll of the SNPC
-ENT.DeathCorpseEntityClass = "UseDefaultBehavior" -- The entity class it creates | "UseDefaultBehavior" = Let the base automatically detect the type
-ENT.DeathCorpseModel = {} -- The corpse model that it will spawn when it dies | Leave empty to use the NPC's model | Put as many models as desired, the base will pick a random one.
-ENT.DeathCorpseCollisionType = COLLISION_GROUP_DEBRIS -- Collision type for the corpse | SNPC Options Menu can only override this value if it's set to COLLISION_GROUP_DEBRIS!
-ENT.DeathCorpseSkin = -1 -- Used to override the death skin | -1 = Use the skin that the SNPC had before it died
-ENT.DeathCorpseSetBodyGroup = true -- Should it get the models bodygroups and set it to the corpse? When set to false, it uses the model's default bodygroups
-ENT.DeathCorpseBodyGroup = VJ_Set(-1, -1) -- #1 = the category of the first bodygroup | #2 = the value of the second bodygroup | Set -1 for #1 to let the base decide the corpse's bodygroup
-ENT.DeathCorpseSubMaterials = nil -- Apply a table of indexes that correspond to a sub material index, this will cause the base to copy the NPC's sub material to the corpse.
-ENT.DeathCorpseFade = false -- Fades the ragdoll on death
-ENT.DeathCorpseFadeTime = 10 -- How much time until the ragdoll fades | Unit = Seconds
-ENT.DeathCorpseSetBoneAngles = true -- This can be used to stop the corpse glitching or flying on death
-ENT.DeathCorpseApplyForce = true -- If false, force will not be applied to the corpse
-ENT.WaitBeforeDeathTime = 0 -- Time until the SNPC spawns its corpse and gets removed
 
 ENT.SoundTbl_MeleeAttack = {"grunt/punch/impact - punch01.wav","grunt/punch/impact - punch03.wav","grunt/punch/impact - punch05.wav","grunt/punch/impact - punch07.wav","grunt/punch/impact - punch11.wav"}
 ENT.SoundTbl_MeleeAttackMiss = {"grunt/punch/swoosh1.wav","grunt/punch/swoosh2.wav","grunt/punch/swoosh3.wav","grunt/punch/swoosh4.wav"}
 ENT.SoundTbl_Pain = {"grunt/punch/impact - punch03.wav","grunt/punch/impact - punch04.wav"}
+
+
 
 	-- ====== Dismemberment/Gib Variables ====== --
 ENT.AllowedToGib = true -- Is it allowed to gib in general? This can be on death or when shot in a certain place
@@ -66,6 +49,7 @@ ENT.MeleeAttackAnimationAllowOtherTasks = false
 ENT.TimeUntilMeleeAttackDamage = 0.5 -- This counted in seconds | This calculates the time until it hits something
 ENT.NextAnyAttackTime_Melee = 0	 -- How much time until it can use any attack again? | Counted in Seconds
 ENT.MeleeAttackDamage = 10
+ENT.MeleeAttackDamageType = DMG_CLUB
 ENT.CanFlinch = 1 -- 0 = Don't flinch | 1 = Flinch at any damage | 2 = Flinch only from certain damages
 ENT.AnimTbl_Flinch = {ACT_FLINCH} -- If it uses normal based animation, use this
 ENT.FlinchDamageTypes = {DMG_CLUB} -- If it uses damage-based flinching, which types of damages should it flinch from?
@@ -73,115 +57,137 @@ ENT.FlinchChance = 1 -- Chance of it flinching from 1 to x | 1 will make it alwa
 ENT.NextMoveAfterFlinchTime = false -- How much time until it can move, attack, etc.
 ENT.NextFlinchTime = 1 -- How much time until it can flinch again?
 ENT.FlinchAnimationDecreaseLengthAmount = 4 -- This will decrease the time it can move, attack, etc. | Use it to fix animation pauses after it finished the flinch animation
+ENT.CallForHelp = false 
+ENT.HasDeathAnimation = true  -- Should it play death animations?
+
 ---------------------------------------------------------------------------------------------------------------------------------------------
+--custom
+ENT.madness_head_gib = false
+ENT.infected = false
 function ENT:CustomOnInitialize()
 	self.totalDamage = {} --need to gib work
 	self.GetDamageType = {} --need to gib work
 end
-function ENT:MeleeAttackKnockbackVelocity(hitEnt)
-	return self:GetForward()*math.random(100, 140) + self:GetUp()*10
+function madness_colidebone(ragdoll,bone_name)
+	local colide = ragdoll:GetPhysicsObjectNum(ragdoll:TranslateBoneToPhysBone( ragdoll:LookupBone(bone_name) ) ) --get bone id
+	colide:EnableCollisions(false)
+	colide:SetMass(0.01)
 end
 ---------------------------------------------------------------------------------------------------------------------------------------------
 function ENT:CustomOnTakeDamage_OnBleed(dmginfo, hitgroup) 
+	if GetConVar("vj_madness_gore"):GetInt() == 1 then
     local damageForce = dmginfo:GetDamageForce():Length()
 	local dmgType = dmginfo:GetDamageType()
+	if not self:IsValid() then
+		return 
+	end
     self.totalDamage[hitgroup] = (self.totalDamage[hitgroup] or 0) + damageForce
 
+	if dmginfo:IsDamageType(DMG_BUCKSHOT) and hitgroup == HITGROUP_HEAD or hitgroup == 9 and damageForce > 9000 then 
+		if GetConVar("vj_madness_DMG_BUCKSHOT_alwaysgib"):GetInt() == 1 then
+		gib_my_head(self)
+		end
+	end	
 	if hitgroup == HITGROUP_HEAD and self.totalDamage[hitgroup] > 12000	 then    -- Dismember heads code
-		if self:GetBodygroup(0) == 4 then
+		gib_my_head(self)
+    end
+	if hitgroup == 9 and self.totalDamage[hitgroup] > 12000	 then    -- Dismember heads code
+		gib_my_head(self)
+    end
+	
+	if self:IsOnFire() and GetConVar("vj_madness_die_instantly_in_fire"):GetInt() == 1 then
+		if self:Alive() then
+		self.AnimTbl_Death = {"ACT_BURNING","ACT_INFECTED","ACT_FLINCH"}
+		VJ_EmitSound(self, "grunt/die.wav")
+		self:TakeDamage(self:Health(), attacker, attacker)
+	end
+    end
+	if hitgroup == 8 and self.totalDamage[hitgroup] > 4000	 then    -- Dismember heads code
+		if self.madness_head_gib == true then
             return
         end	
 	self:SetBodygroup(0, 4)
-	self:SetBodygroup(1, 1)
-	VJ_EmitSound(self, "grunt/die.wav")
-	self:CreateGibEntity("prop_physics","models/madness/npc/gibs/head_chunk.mdl",{Pos=self:LocalToWorld(Vector(30,0,54)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(350,350)+self:GetForward()*math.Rand(-200,300)})
-	self:CreateGibEntity("prop_physics","models/madness/npc/gibs/head_chunk2.mdl",{Pos=self:LocalToWorld(Vector(0,0,54)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(-350,350)+self:GetForward()*math.Rand(-200,-300)})
-	self:CreateGibEntity("prop_physics","models/madness/npc/gibs/head_chunk3.mdl",{Pos=self:LocalToWorld(Vector(0,0,59)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(-350,350)+self:GetForward()*math.Rand(-200,-300)})
-	self:CreateGibEntity("prop_physics","models/madness/npc/gibs/head_chunk4.mdl",{Pos=self:LocalToWorld(Vector(0,0,60)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(-350,350)+self:GetForward()*math.Rand(-200,-300)})
-	self:CreateGibEntity("prop_physics","models/madness/npc/gibs/head_chunk5.mdl",{Pos=self:LocalToWorld(Vector(0,-10,69)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(-350,400)+self:GetForward()*math.Rand(100,-300)})
-	self:TakeDamage(self:Health(), attacker, attacker)
-    end
-	
-	if self:IsOnFire() then
-	if self.Dead == false then
-	self.AnimTbl_Death = {"ACT_BURNING"}
+	self:RemoveAllDecals()
 	VJ_EmitSound(self, "grunt/die.wav")
 	self:TakeDamage(self:Health(), attacker, attacker)
-	end
     end
-
 	if dmgType == DMG_SLASH && dmginfo:IsDamageType(DMG_SLASH) and self:Health() < (self:GetMaxHealth() * 0.2) then 
-		if self:GetBodygroup(0) == 4 then
-            return
-        end	
+	if self.madness_head_gib == true then return end
 		local slice = math.random(1,2)
 		if slice == 1 then
 			VJ_EmitSound(self, "vj_gib/gibbing1.wav")
-			self:SetBodygroup(0, 4)
+			self.madness_head_gib = true
 			self.HasDeathRagdoll = false
 			self:CreateGibEntity("prop_ragdoll","models/madness/npc/gibs/grunt_half2.mdl",{Pos=self:LocalToWorld(Vector(0,0,25)),Ang=self:GetAngles(),Vel=self:GetRight()*math.Rand(-100,1000)+self:GetForward()*math.Rand(-1000,0600)})
 			self:CreateGibEntity("prop_ragdoll","models/madness/npc/gibs/grunt_half.mdl",{Pos=self:LocalToWorld(Vector(0,0,0)),Ang=self:GetAngles(),Vel=self:GetRight()*math.Rand(-100,100)+self:GetForward()*math.Rand(-50,50)})
 			self:TakeDamage(self:Health())
-		end
-		if slice == 2 then
+		else
 			VJ_EmitSound(self, "vj_gib/gibbing1.wav")
-			self:SetBodygroup(0, 4)
+			self:SetBodygroup(0, 5)
 			self:SetBodygroup(1, 1)
+				self.madness_head_gib = true
 			self:CreateGibEntity("prop_physics","models/madness/npc/gibs/Head.mdl",{Pos=self:LocalToWorld(Vector(0,0,54)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(-350,350)+self:GetForward()*math.Rand(-200,-300)})		
 			self:TakeDamage(self:Health())
 		end
 	end	
 		
-	if dmgType == DMG_SLASH && dmginfo:IsDamageType(DMG_SLASH) and self:Health() < (self:GetMaxHealth() * 0.7) then 
-		if self:GetBodygroup(0) == 1 then
-            return
-        end	
-		if self:GetBodygroup(0) == 4 then
-            return
-        end	
+	if dmginfo:IsDamageType(DMG_SLASH) and self:Health() < (self:GetMaxHealth() * 0.7) then 
+		if self.madness_head_gib == true then return end
+		self.head_gib = true
 		self:SetBodygroup(0, 1)
 		self:TakeDamage(self:Health())
-		self:CreateGibEntity("obj_vj_gib","models/madness/npc/gibs/head_chunk6.mdl",{BloodType="Red", BloodDecal="VJ_GRUNT_BLOOD",Pos=self:LocalToWorld(Vector(0,0,57)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(350,350)+self:GetForward()*math.Rand(-200,300)})
+		VJ_EmitSound(self, "weapons/impact - sword 7.wav")
+		self:CreateGibEntity("obj_vj_gib","models/madness/npc/gibs/head_chunk6.mdl",{BloodType="Red", BloodDecal="VJ_GRUNT_BLOOD",Pos=self:LocalToWorld(Vector(0,0,57)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(-350,350)+self:GetForward()*math.Rand(-350,350)})
 	end	
 
 	
     if hitgroup == HITGROUP_HEAD and self.totalDamage[hitgroup] > 4000	 then    -- Dismember heads code
-		if self:GetBodygroup(0) == 2 then
-            return
-        end	
-		if self:GetBodygroup(0) == 4 then
-            return
-        end	
-	
-		local head_damege_test = math.random(1,2)
-		if head_damege_test == 1 then
-			self:SetBodygroup(0, 2)
-			self:CreateGibEntity("prop_physics","models/madness/npc/gibs/head_chunk.mdl",{Pos=self:LocalToWorld(Vector(30,0,54)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(350,350)+self:GetForward()*math.Rand(-200,300)})
-		end
-		if head_damege_test == 2 then
-			self:SetBodygroup(0, 3)
-		end
+	if self.madness_head_gib == true then return end
+	self.madness_head_gib = true
+	self:SetBodygroup(0, 3)
 	VJ_EmitSound(self, "grunt/die.wav")
 	self:TakeDamage(self:Health(), attacker, attacker)
     end
+	
+	if hitgroup == 9 and self.totalDamage[hitgroup] > 4000	 then    -- Dismember heads code
+		if self.madness_head_gib == true then
+            return
+        end	
+	self.madness_head_gib = true
+	self:SetBodygroup(0, 2)
+	self:CreateGibEntity("prop_physics","models/madness/npc/gibs/head_chunk.mdl",{Pos=self:LocalToWorld(Vector(30,0,54)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(350,350)+self:GetForward()*math.Rand(-200,300)})
+	VJ_EmitSound(self, "grunt/die.wav")
+	self:TakeDamage(self:Health(), attacker, attacker)
+    end
+	
 	if hitgroup == HITGROUP_CHEST and self.totalDamage[hitgroup] > 3000	 then  
-	if self:GetBodygroup(0) == 4 then
+	if self:GetBodygroup(0) == 5 then
         return
     end
 		self:RemoveAllDecals()
 		VJ_EmitSound(self, "vj_gib/bones_snapping2.wav")
-		self:SetBodygroup(0, 4)
+		self.madness_head_DESTROID = true
+		self:SetBodygroup(0, 5)
+		self:SetBodygroup(5, 1)
 		self:SetBodygroup(1, 1)
 		self:TakeDamage(self:Health(), attacker, attacker)
 		self:CreateGibEntity("prop_physics","models/madness/npc/gibs/Head.mdl",{Pos=self:LocalToWorld(Vector(0,0,54)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(-350,350)+self:GetForward()*math.Rand(-200,-300)})		
 	end	
 	
+	if hitgroup == HITGROUP_RIGHTARM and self.totalDamage[hitgroup] > 4000	 then    -- Dismember heads code
+
+	VJ_EmitSound(self, "grunt/die.wav")
+	self.AnimTbl_Death = {"ACT_PAIN"}
+	self:TakeDamage(self:Health(), attacker, attacker)
+    end
 	if hitgroup == HITGROUP_LEFTLEG and self.totalDamage[hitgroup] > 4000	 then    -- Dismember heads code
 		if self:GetBodygroup(3) == 1 then
             return
         end	
-	self:SetBodygroup(3, 1)
+
 	VJ_EmitSound(self, "grunt/die.wav")
+	self.gib_my_L_leg = true
+	self:SetBodygroup(3, 1)
 	self.AnimTbl_Death = {"ACT_DIE"}
 	self:CreateGibEntity("prop_physics","models/madness/npc/gibs/feet.mdl",{Pos=self:LocalToWorld(Vector(0,20,0)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(-350,350)+self:GetForward()*math.Rand(-200,-300)})
 	self:TakeDamage(self:Health(), attacker, attacker)
@@ -191,9 +197,10 @@ function ENT:CustomOnTakeDamage_OnBleed(dmginfo, hitgroup)
 		if self:GetBodygroup(4) == 1 then
             return
         end	
-		
-	self:SetBodygroup(4, 1)
+
 	VJ_EmitSound(self, "grunt/die.wav")
+	self.gib_my_madness_R_leg = true
+	self:SetBodygroup(4, 1)
 	self.AnimTbl_Death = {"ACT_DIE"}
 	self:CreateGibEntity("prop_physics","models/madness/npc/gibs/feet.mdl",{Pos=self:LocalToWorld(Vector(0,-20,0)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(-350,350)+self:GetForward()*math.Rand(-200,-300)})
 	self:TakeDamage(self:Health(), attacker, attacker)
@@ -206,10 +213,16 @@ function ENT:CustomOnTakeDamage_OnBleed(dmginfo, hitgroup)
 	self:SetBodygroup(1, 2)
 	VJ_EmitSound(self, "grunt/die.wav")
 	self.HasDeathRagdoll = false
-	self:CreateGibEntity("prop_ragdoll","models/madness/npc/gibs/grunt_half2.mdl",{Pos=self:LocalToWorld(Vector(0,0,25)),Ang=self:GetAngles(),Vel=self:GetRight()*math.Rand(-100,1000)+self:GetForward()*math.Rand(-1000,0600)})
-	self:CreateGibEntity("prop_ragdoll","models/madness/npc/gibs/grunt_half.mdl",{Pos=self:LocalToWorld(Vector(0,0,0)),Ang=self:GetAngles(),Vel=self:GetRight()*math.Rand(-100,100)+self:GetForward()*math.Rand(-50,50)})
+	if self:GetClass() == "npc_vj_agent" then
+		self:CreateGibEntity("prop_ragdoll","models/madness/npc/gibs/agent_half2.mdl",{Pos=self:LocalToWorld(Vector(0,0,25)),Ang=self:GetAngles(),Vel=self:GetRight()*math.Rand(-100,1000)+self:GetForward()*math.Rand(-1000,0600)})
+		self:CreateGibEntity("prop_ragdoll","models/madness/npc/gibs/agent_half.mdl",{Pos=self:LocalToWorld(Vector(0,0,0)),Ang=self:GetAngles(),Vel=self:GetRight()*math.Rand(-100,100)+self:GetForward()*math.Rand(-50,50)})
+	else
+		self:CreateGibEntity("prop_ragdoll","models/madness/npc/gibs/grunt_half2.mdl",{Pos=self:LocalToWorld(Vector(0,0,25)),Ang=self:GetAngles(),Vel=self:GetRight()*math.Rand(-100,1000)+self:GetForward()*math.Rand(-1000,0600)})
+		self:CreateGibEntity("prop_ragdoll","models/madness/npc/gibs/grunt_half.mdl",{Pos=self:LocalToWorld(Vector(0,0,0)),Ang=self:GetAngles(),Vel=self:GetRight()*math.Rand(-100,100)+self:GetForward()*math.Rand(-50,50)})
+	end	
 	self:TakeDamage(self:Health(), attacker, attacker)
     end
+	end
 end
 ---------------------------------------------------------------------------------------------------------------------------------------------
 local colorRed = VJ_Color2Byte(Color(255, 0, 0))
@@ -248,8 +261,53 @@ function ENT:SetUpGibesOnDeath(dmginfo,hitgroup)
 end
 ----------------------------------------------------------------------------------------------------------------------------------------------
 function ENT:CustomOnDeath_AfterCorpseSpawned(dmginfo, hitgroup, corpseEnt)
+	if self.HasGibDeathParticles == true and self.madness_head_DESTROID == true and IsValid( corpseEnt ) then
+		local bloodeffect = ents.Create("info_particle_system")
+		bloodeffect:SetKeyValue("effect_name","blood_advisor_puncture_withdraw")
+		bloodeffect:SetPos(corpseEnt:GetAttachment(corpseEnt:LookupAttachment("head")).Pos)
+		bloodeffect:SetAngles(corpseEnt:GetAttachment(corpseEnt:LookupAttachment("head")).Ang)
+		bloodeffect:SetParent(corpseEnt)
+		bloodeffect:Fire("SetParentAttachment","head")
+		bloodeffect:Spawn()
+		bloodeffect:Activate()
+		bloodeffect:Fire("Start","",0)
+		bloodeffect:Fire("Kill","",3.5)
+	end
+	if self.madness_head_DESTROID == true then
+		madness_colidebone(corpseEnt,"ValveBiped.Bip01_Head1")
+	end
+	if self.gib_my_madness_R_leg == true then
+		madness_colidebone(corpseEnt,"ValveBiped.Bip01_R_Foot")
+	end
+	if self.gib_my_L_leg == true then
+		madness_colidebone(corpseEnt,"ValveBiped.Bip01_L_Foot")
+	end
 	VJ_ApplyCorpseEffects(self, corpseEnt, gibs)
 end
+function gib_my_head(self)
+	if self.madness_head_gib == true then return end
+	self.madness_head_gib = true
+	self.madness_head_DESTROID = true
+	self:SetBodygroup(0, 5)
+	self:SetBodygroup(1, 1)
+	self:SetBodygroup(5, 1)
+	self:RemoveAllDecals()
+	VJ_EmitSound(self, "grunt/die.wav")
+	if self.HasGibDeathParticles == true then
+		local bloodeffect = EffectData()
+		bloodeffect:SetOrigin(self:LocalToWorld(Vector(0,0,27)) +self:OBBCenter())
+		bloodeffect:SetColor(VJ_Color2Byte(Color(130,19,10)))
+		bloodeffect:SetScale(30)
+		util.Effect("VJ_Blood1",bloodeffect)
+	end
+	self:CreateGibEntity("prop_physics","models/madness/npc/gibs/head_chunk.mdl",{Pos=self:LocalToWorld(Vector(30,0,54)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(350,350)+self:GetForward()*math.Rand(-200,300)})
+	self:CreateGibEntity("prop_physics","models/madness/npc/gibs/head_chunk2.mdl",{Pos=self:LocalToWorld(Vector(0,0,54)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(-350,350)+self:GetForward()*math.Rand(-200,-300)})
+	self:CreateGibEntity("prop_physics","models/madness/npc/gibs/head_chunk3.mdl",{Pos=self:LocalToWorld(Vector(0,0,59)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(-350,350)+self:GetForward()*math.Rand(-200,-300)})
+	self:CreateGibEntity("prop_physics","models/madness/npc/gibs/head_chunk4.mdl",{Pos=self:LocalToWorld(Vector(0,0,60)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(-350,350)+self:GetForward()*math.Rand(-200,-300)})
+	self:CreateGibEntity("prop_physics","models/madness/npc/gibs/head_chunk5.mdl",{Pos=self:LocalToWorld(Vector(0,-10,69)),Ang=self:GetAngles()+Angle(0,0,0),Vel=self:GetRight()*math.Rand(-350,400)+self:GetForward()*math.Rand(100,-300)})
+	self:TakeDamage(self:Health(), attacker, attacker)
+end
+
 ---------------------------------------------------------------------------------------------------------------------------------------------
 	-- All functions and variables are located inside the base files. It can be found in the GitHub Repository: https://github.com/DrVrej/VJ-Base
 

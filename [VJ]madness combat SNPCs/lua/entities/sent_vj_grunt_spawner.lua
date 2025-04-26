@@ -12,7 +12,7 @@ ENT.Category		= "VJ Base Spawners"
 ENT.Spawnable		= false
 ENT.AdminSpawnable	= false
 ---------------------------------------------------------------------------------------------------------------------------------------------
-ENT.Model = {"models/gibs/humans/brain_gib.mdl"} -- The models it should spawn with | Picks a random one from the table
+ENT.Model = {"models/madness/npc/gibs/gib02.mdl"} -- The models it should spawn with | Picks a random one from the table
 ENT.EntitiesToSpawn = {
 	{EntityName = "NPC1",SpawnPosition = {vForward=50,vRight=0,vUp=0},Entities = {"npc_vj_grunt","npc_vj_grunt_melee","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt"}},
 	{EntityName = "NPC2",SpawnPosition = {vForward=0,vRight=50,vUp=0},Entities = {"npc_vj_grunt_melee","npc_vj_grunt","npc_vj_grunt_melee","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt","npc_vj_grunt"}},

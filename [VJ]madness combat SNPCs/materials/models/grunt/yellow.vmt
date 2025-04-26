@@ -1,0 +1,6 @@
+VertexLitGeneric
+{
+	$basetexture "models/grunt/yellow"
+	$nodecal 1
+	$translucent 1
+}

@@ -1,0 +1,5 @@
+"VertexlitGeneric"
+{
+	"$basetexture" "models/agent/grunt_texture"
+	$selfillum 1
+}

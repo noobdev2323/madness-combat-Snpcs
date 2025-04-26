@@ -1,0 +1,6 @@
+VertexLitGeneric
+{
+	"$basetexture" "models/agent/gibs"
+	$nodecal 1
+	$selfillum 1
+}
